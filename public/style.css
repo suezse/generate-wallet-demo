@@ -142,11 +142,7 @@ p { margin: 0; }
   flex: none;
 }
 .brand { display: flex; align-items: center; gap: 8px; margin-right: auto; }
-.brand-mark {
-  width: 22px; height: 22px; border-radius: 50%;
-  background: conic-gradient(from 200deg, var(--blue-light), #fff 55%, var(--green));
-}
-.brand-word { font-family: var(--head); font-weight: 800; font-size: 21px; letter-spacing: -0.3px; }
+.brand-logo { display: block; height: 24px; width: auto; }
 .avatar {
   width: 34px; height: 34px; border-radius: 50%;
   display: grid; place-items: center;
