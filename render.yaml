@@ -1,0 +1,15 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: generate-wallet-demo
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: CKO_SECRET_KEY
+        sync: false   # entered in the Render dashboard, never stored in Git
+      - key: CKO_PROCESSING_CHANNEL_ID
+        value: pc_3zhdtyp6cysujau4fdbz4r57yi

@@ -1,0 +1,8 @@
+node_modules/
+.env
+# Demo data written at runtime
+accounts.json
+customers.json
+# Old sample files – contain the hard-coded sandbox secret key
+backup-original/
+.DS_Store

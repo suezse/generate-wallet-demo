@@ -1,0 +1,19 @@
+{
+  "name": "generate-wallet-demo",
+  "version": "1.0.0",
+  "description": "Generate Wallet top-up demo using Checkout.com Flow (AFT)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.js"
+  },
+  "author": "checkout.com",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.17.1",
+    "node-fetch": "^2.6.12"
+  },
+  "engines": {
+    "node": ">=22.9"
+  },
+  "private": true
+}
