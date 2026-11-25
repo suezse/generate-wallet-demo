@@ -305,6 +305,7 @@ main { flex: 1; display: flex; flex-direction: column; }
   display: grid; place-items: center; background: var(--blue-wash); color: var(--blue);
 }
 .method-icon.dark { background: #000; color: #fff; }
+.method-icon.saved { background: var(--green-tint); color: #016b57; }
 .method-icon.gpay { background: #fff; border: 1px solid var(--line); }
 .method-text { flex: 1; min-width: 0; }
 .method-text strong { display: block; font-size: 15px; color: var(--ink-strong); }

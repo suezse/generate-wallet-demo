@@ -53,6 +53,8 @@ const newAccount = () => ({
   currency: CURRENCY,
   balance: 0,
   opened_at: new Date().toISOString(),
+  // Checkout.com customer (cus_...) that holds the member's saved cards
+  customer_id: null,
   transactions: [],
 });
 const loadAccount = () => {
@@ -82,6 +84,7 @@ const parseAmount = (value) => {
 // Which Flow payment method each top-up option maps to
 const FLOW_METHODS = {
   card: "card",
+  stored_card: "stored_card",
   applepay: "applepay",
   googlepay: "googlepay",
 };
@@ -98,11 +101,50 @@ app.get("/api/account", (_req, res) => {
   res.send({ member: { first_name: MEMBER.first_name }, account: publicAccount(loadAccount()) });
 });
 
-// Demo only: reset the wallet to a brand-new, zero-balance account
-app.post("/api/account/reset", (_req, res) => {
+// Demo only: reset the wallet to a brand-new, zero-balance account.
+// Also deletes the Checkout.com customer, which removes all of its saved cards.
+app.post("/api/account/reset", async (_req, res) => {
+  const customerId = loadAccount().customer_id;
+  let savedCardsCleared = true;
+  if (customerId) {
+    const del = await fetch(`${CKO_API}/customers/${encodeURIComponent(customerId)}`, {
+      method: "DELETE",
+      headers: ckoHeaders,
+    });
+    // 404 = already gone, which is fine
+    savedCardsCleared = del.ok || del.status === 404;
+    if (!savedCardsCleared) console.error("Failed to delete customer", customerId, del.status);
+  }
   const account = newAccount();
   saveAccount(account);
-  res.send({ account: publicAccount(account) });
+  res.send({ account: publicAccount(account), saved_cards_cleared: savedCardsCleared });
+});
+
+// ---------------------------------------------------------------------------
+// Saved cards (stored against the member's Checkout.com customer)
+// ---------------------------------------------------------------------------
+app.get("/api/saved-cards", async (_req, res) => {
+  const customerId = loadAccount().customer_id;
+  if (!customerId) return res.send({ cards: [] });
+
+  const request = await fetch(`${CKO_API}/customers/${encodeURIComponent(customerId)}`, {
+    headers: ckoHeaders,
+  });
+  if (request.status === 404) return res.send({ cards: [] });
+  const customer = await request.json().catch(() => ({}));
+  if (!request.ok) return res.status(request.status).send({ error: "Could not load saved cards" });
+
+  const cards = (customer.instruments || [])
+    .filter((i) => i.type === "card")
+    .map((i) => ({
+      id: i.id,
+      scheme: i.scheme,
+      last4: i.last4,
+      expiry_month: i.expiry_month,
+      expiry_year: i.expiry_year,
+      is_default: i.id === customer.default,
+    }));
+  res.send({ cards });
 });
 
 // ---------------------------------------------------------------------------
@@ -134,7 +176,10 @@ app.post("/create-payment-sessions", async (req, res) => {
         name: "Generate Wealth",
         city: "Auckland",
       },
+      // Saved cards are stored against this customer (matched by email,
+      // or by ID once we know it from a previous payment)
       customer: {
+        ...(account.customer_id && { id: account.customer_id }),
         email: MEMBER.email,
         name: `${MEMBER.first_name} ${MEMBER.last_name}`,
       },
@@ -170,6 +215,12 @@ app.post("/create-payment-sessions", async (req, res) => {
       // Note: don't send enabled_payment_methods with "card" – Checkout.com then adds
       // Remember Me even if it's listed here. disabled_payment_methods alone works.
       disabled_payment_methods: ["remember_me"],
+      payment_method_configuration: {
+        // Show a "save card for future payments" checkbox on the card form
+        card: { store_payment_details: "collect_consent" },
+        // Let the member pay with the cards they saved before
+        ...(account.customer_id && { stored_card: { customer_id: account.customer_id } }),
+      },
       success_url: `${baseUrl(req)}/?status=succeeded`,
       failure_url: `${baseUrl(req)}/?status=failed`,
       metadata: { account_id: account.id, topup_method: req.body.method },
@@ -226,6 +277,8 @@ app.post("/api/topups/:paymentId/confirm", async (req, res) => {
   };
   account.balance += payment.amount;
   account.transactions.push(transaction);
+  // Remember the Checkout.com customer so saved cards show next time
+  if (payment.customer?.id) account.customer_id = payment.customer.id;
   saveAccount(account);
 
   res.send({ credited: true, transaction, account: publicAccount(account) });
@@ -233,7 +286,9 @@ app.post("/api/topups/:paymentId/confirm", async (req, res) => {
 
 function describeSource(payment) {
   const s = payment.source || {};
-  const label = { applepay: "Apple Pay", googlepay: "Google Pay" }[payment.metadata?.topup_method];
+  const label = { applepay: "Apple Pay", googlepay: "Google Pay", stored_card: "Saved card" }[
+    payment.metadata?.topup_method
+  ];
   const card = s.scheme && s.last4 ? `${s.scheme} •••• ${s.last4}` : "Card";
   return label ? `${label} · ${card}` : card;
 }

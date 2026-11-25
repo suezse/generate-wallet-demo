@@ -104,13 +104,29 @@
               <div class="panel">
                 <p class="field-label">Pay with</p>
                 <div class="methods" id="methods">
+                  <!-- Saved cards (shown once the member has saved a card) -->
+                  <div class="method" data-method="stored_card" hidden>
+                    <button class="method-head" type="button" aria-expanded="false">
+                      <span class="method-icon saved">
+                        <svg viewBox="0 0 24 24" width="22" height="22"><rect x="2.5" y="5" width="19" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2.5 9.5h19" stroke="currentColor" stroke-width="1.8"/><path d="M14.5 15l1.6 1.6 3-3.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </span>
+                      <span class="method-text"><strong>Saved card</strong><small id="savedCardsSummary">Your saved cards</small></span>
+                      <span class="chevron"></span>
+                    </button>
+                    <div class="method-body"><div class="method-inner">
+                      <div class="loading" hidden><span class="spinner"></span>Loading your saved cards…</div>
+                      <div class="flow-slot"></div>
+                      <p class="field-error" hidden></p>
+                    </div></div>
+                  </div>
+
                   <!-- Card -->
                   <div class="method" data-method="card">
                     <button class="method-head" type="button" aria-expanded="false">
                       <span class="method-icon">
                         <svg viewBox="0 0 24 24" width="22" height="22"><rect x="2.5" y="5" width="19" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2.5 9.5h19" stroke="currentColor" stroke-width="1.8"/></svg>
                       </span>
-                      <span class="method-text"><strong>Debit or credit card</strong><small>Visa, Mastercard · instant</small></span>
+                      <span class="method-text"><strong>Debit or credit card</strong><small>Visa, Mastercard · save it for next time</small></span>
                       <span class="chevron"></span>
                     </button>
                     <div class="method-body"><div class="method-inner">

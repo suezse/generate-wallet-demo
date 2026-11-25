@@ -3,7 +3,7 @@
 // Insert your public key here
 const PUBLIC_KEY = "pk_sbox_fdxl7kyvcvghszuj4gom7737ny3";
 
-const FLOW_METHODS = ["card", "applepay", "googlepay"];
+const FLOW_METHODS = ["stored_card", "card", "applepay", "googlepay"];
 
 // Flow styled to match Generate (blue actions, Open Sans)
 const FLOW_APPEARANCE = {
@@ -26,6 +26,7 @@ const UNAVAILABLE = {
   googlepay:
     "Google Pay isn't available in this browser. Try Chrome with a card saved to Google Pay, or choose another method.",
   card: "Card payments aren't available right now. Please choose another method.",
+  stored_card: "Your saved cards aren't available right now. Pay with a new card instead.",
 };
 
 const state = {
@@ -129,15 +130,42 @@ async function loadAccount() {
 
 $("topUpBtn").addEventListener("click", () => {
   $("amountError").hidden = true;
+  loadSavedCards();
   show("topup");
   setTimeout(() => $("amount").focus(), 50);
 });
 
 $("resetBtn").addEventListener("click", async () => {
-  const { account } = await api("/api/account/reset", { body: {} });
+  const { account, saved_cards_cleared } = await api("/api/account/reset", { body: {} });
   renderAccount(account);
-  toast("Demo reset: new account with NZ$0.00");
+  await loadSavedCards();
+  toast(
+    saved_cards_cleared
+      ? "Demo reset: new account with NZ$0.00 and no saved cards"
+      : "Balance reset, but saved cards could not be removed"
+  );
 });
+
+// ---------------------------------------------------------------------------
+// Saved cards
+// ---------------------------------------------------------------------------
+async function loadSavedCards() {
+  let cards = [];
+  try {
+    ({ cards } = await api("/api/saved-cards"));
+  } catch (err) {
+    console.warn("Could not load saved cards", err);
+  }
+  state.savedCards = cards;
+  const row = methodEl("stored_card");
+  row.hidden = cards.length === 0;
+  if (!cards.length && state.openMethod === "stored_card") closeMethods();
+  const first = cards.find((c) => c.is_default) || cards[0];
+  const scheme = (s) => (s ? s.charAt(0) + s.slice(1).toLowerCase() : "Card");
+  $("savedCardsSummary").textContent = first
+    ? `${scheme(first.scheme)} •••• ${first.last4}` + (cards.length > 1 ? ` · +${cards.length - 1} more` : "")
+    : "";
+}
 
 // ---------------------------------------------------------------------------
 // Amount
@@ -216,6 +244,8 @@ function openMethod(m) {
 }
 
 function closeMethods() {
+  // Closing the saved-card form may follow a card removal, so refresh the list
+  if (state.openMethod === "stored_card") setTimeout(loadSavedCards, 0);
   clearTimeout(amountTimer);
   unmountFlow();
   state.openMethod = null;
@@ -267,6 +297,10 @@ async function mountFlow(m) {
       locale: "en-GB",
       paymentSession,
       appearance: FLOW_APPEARANCE,
+      componentOptions: {
+        // Let members delete saved cards they no longer want
+        stored_card: { allowRemoveInstrument: true },
+      },
       onPaymentCompleted: (_component, paymentResponse) => confirmTopUp(paymentResponse.id, amount),
       onError: (component, error) => {
         console.log("onError", error, "Component", component?.type);
@@ -301,6 +335,7 @@ async function confirmTopUp(paymentId, fallbackAmount) {
     });
     renderAccount(account);
     showResult("success", transaction.amount, account.balance, transaction.description);
+    loadSavedCards();
   } catch (err) {
     console.error("Top-up confirmation failed", err, err.data);
     showResult("failed", fallbackAmount || 0, state.account?.balance ?? 0, err.message);
@@ -417,6 +452,7 @@ $("doneBtn").addEventListener("click", () => show("home"));
 // ---------------------------------------------------------------------------
 (async () => {
   await loadAccount();
+  loadSavedCards();
 
   const params = new URLSearchParams(window.location.search);
   const paymentId = params.get("cko-payment-id");
